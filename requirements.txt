@@ -1,0 +1,8 @@
+streamlit>=1.60
+altair>=6.0
+pandas>=2.2
+numpy>=1.26
+scikit-learn>=1.4
+xgboost>=2.0
+statsmodels>=0.14
+pmdarima>=2.0
