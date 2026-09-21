@@ -167,6 +167,30 @@ with tab_forecast:
         f"**{lowest_aqi:.1f} ({lowest_category})**."
     )
 
+    # ----------------------------------------------------------
+    # Public-health interpretation
+    # ----------------------------------------------------------
+    public_health_messages = {
+        "Good": "Air quality is generally considered satisfactory. No special precautions are expected for the general population.",
+        "Moderate": "Air quality may affect unusually sensitive people. People who are particularly sensitive to air pollution can consider reducing prolonged outdoor activity if they notice symptoms.",
+        "Unhealthy for Sensitive Groups": "Sensitive groups may experience health effects. Schools, healthcare facilities, and vulnerable individuals can use this period to plan activities and reduce prolonged exposure when appropriate.",
+        "Unhealthy": "More people may experience health effects. Consider reducing prolonged outdoor exposure, especially for sensitive groups, and use the forecast to support preparedness and environmental-health planning.",
+        "Very Unhealthy": "The risk of health effects is increased. Communities, schools, and healthcare facilities can use this period for heightened preparedness and consider limiting prolonged outdoor activities.",
+        "Hazardous": "Air pollution is forecast at a hazardous level. This warrants strong public-health awareness and preparedness, with vulnerable people taking particular care to minimize prolonged exposure."
+    }
+
+    insight_message = public_health_messages.get(
+        highest_category,
+        "Use the forecast as an early-warning signal for air-quality planning and preparedness."
+    )
+
+    st.subheader("🩺 What this means for public health")
+    st.warning(insight_message)
+    st.caption(
+        "These are general public-health considerations, not medical advice. "
+        "Forecasts are predictions and may differ from actual conditions."
+    )
+
     hist_tail = agg["AQI"].iloc[-24:]
     hist_df = pd.DataFrame({"Date": hist_tail.index, "AQI": hist_tail.values, "Type": "Historical"})
     fut_df = pd.DataFrame({
