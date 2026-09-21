@@ -144,6 +144,29 @@ tab_forecast, tab_history, tab_models, tab_about = st.tabs(
 
 # ---- Forecast tab ----
 with tab_forecast:
+    # ----------------------------------------------------------
+    # Forecast Insight
+    # ----------------------------------------------------------
+    highest = forecast_table["Forecast_AQI"].idxmax()
+    lowest = forecast_table["Forecast_AQI"].idxmin()
+
+    highest_aqi = forecast_table.loc[highest, "Forecast_AQI"]
+    lowest_aqi = forecast_table.loc[lowest, "Forecast_AQI"]
+
+    highest_category = forecast_table.loc[highest, "Severity"]
+    lowest_category = forecast_table.loc[lowest, "Severity"]
+
+    st.subheader("🔮 Forecast Insight")
+
+    st.info(
+        f"Air quality is forecast to be highest in "
+        f"**{highest.strftime('%B %Y')}**, with an AQI of "
+        f"**{highest_aqi:.1f} ({highest_category})**. "
+        f"The lowest forecast is expected in "
+        f"**{lowest.strftime('%B %Y')}**, with an AQI of "
+        f"**{lowest_aqi:.1f} ({lowest_category})**."
+    )
+
     hist_tail = agg["AQI"].iloc[-24:]
     hist_df = pd.DataFrame({"Date": hist_tail.index, "AQI": hist_tail.values, "Type": "Historical"})
     fut_df = pd.DataFrame({
