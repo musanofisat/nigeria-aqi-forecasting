@@ -2,8 +2,7 @@
 Nigeria Air Quality Forecast — Streamlit Dashboard
 ====================================================
 Interactive front-end for the capstone forecasting pipeline (see forecasting.py).
-Lets a user pick National / a State / a City, trains & compares 6 models on the
-fly, and shows a 12-month-ahead AQI forecast with confidence intervals.
+Lets a user pick National / a State / a City and shows an AQI forecast with confidence intervals.
 
 Run locally:    streamlit run app.py
 Deploy:         see README.md for Streamlit Community Cloud steps
@@ -90,13 +89,6 @@ elif level == "City":
 
 horizon = st.sidebar.slider("Forecast horizon (months)", min_value=3, max_value=24, value=12, step=1)
 
-st.sidebar.markdown("---")
-st.sidebar.caption(
-    "Methodology: Naive & Seasonal-Naive baselines, Holt-Winters, auto-tuned SARIMA, "
-    "Random Forest and XGBoost (lag + rolling + calendar + pollutant features) are all "
-    "trained and evaluated on a held-out window; the lowest-RMSE model is retrained on "
-    "full history to produce the forecast shown."
-)
 
 # ----------------------------------------------------------------------
 # Run pipeline (cached per level/value/horizon)
@@ -105,7 +97,7 @@ st.sidebar.caption(
 df_fingerprint = f"{len(df)}-{df['Date'].max()}"
 label = "Nigeria (National Average)" if level == "National" else value
 
-with st.spinner(f"Training & evaluating models for {label}..."):
+with st.spinner(f"Generating forecast for {label}..."):
     try:
         result = cached_pipeline(df_fingerprint, df, level, value, horizon)
     except ValueError as e:
@@ -113,11 +105,8 @@ with st.spinner(f"Training & evaluating models for {label}..."):
         st.stop()
 
 agg = result["agg"]
-comparison = result["comparison"]
 forecast_table = result["forecast_table"]
 decomposition = result["decomposition"]
-best_model = comparison["best_model"]
-best_row = comparison["results_df"].iloc[0]
 
 # ----------------------------------------------------------------------
 # Header + headline metrics
@@ -127,19 +116,23 @@ st.title(f"Air Quality Forecast — {label}")
 st.caption(f"Forecast horizon: {horizon} months ahead, starting {forecast_table.index[0].strftime('%B %Y')}")
 
 c1, c2, c3, c4 = st.columns(4)
-c1.metric("Winning model", best_model)
-c2.metric("Test RMSE", f"{best_row['RMSE']:.2f}")
-c3.metric("Test MAPE", f"{best_row['MAPE (%)']:.1f}%")
-worst_month = forecast_table["Forecast_AQI"].idxmax()
-c4.metric("Peak forecast month", worst_month.strftime("%b %Y"),
-          f"AQI {forecast_table['Forecast_AQI'].max():.0f}")
+average_forecast = forecast_table["Forecast_AQI"].mean()
+peak_month = forecast_table["Forecast_AQI"].idxmax()
+lowest_month = forecast_table["Forecast_AQI"].idxmin()
+
+c1.metric("Average forecast AQI", f"{average_forecast:.0f}")
+c2.metric("Peak forecast AQI", f"{forecast_table['Forecast_AQI'].max():.0f}",
+          peak_month.strftime("%b %Y"))
+c3.metric("Lowest forecast AQI", f"{forecast_table['Forecast_AQI'].min():.0f}",
+          lowest_month.strftime("%b %Y"))
+c4.metric("Forecast period", f"{horizon} months")
 
 # ----------------------------------------------------------------------
 # Tabs
 # ----------------------------------------------------------------------
 
-tab_forecast, tab_history, tab_models, tab_about = st.tabs(
-    ["📈 Forecast", "📊 Historical Trends", "🧪 Model Comparison", "ℹ️ About"]
+tab_forecast, tab_history, tab_about = st.tabs(
+    ["📈 Forecast", "📊 Historical Trends", "ℹ️ About"]
 )
 
 # ---- Forecast tab ----
@@ -261,39 +254,17 @@ with tab_history:
     )
     st.altair_chart(bar.properties(height=300), width='stretch')
 
-# ---- Model comparison tab ----
-with tab_models:
-    st.subheader(f"Held-out Test Performance ({horizon}-month window)")
-    st.dataframe(comparison["results_df"], width='stretch')
-    st.caption("Lower RMSE/MAE/MAPE = better. The lowest-RMSE model above is retrained on the "
-               "full series to produce the forecast on the Forecast tab.")
-
-    st.subheader("Test-Period: Actual vs. Each Model's Prediction")
-    test = comparison["test"]
-    plot_df = pd.DataFrame({"Date": test.index, "Actual": test.values})
-    for name, series in comparison["forecasts"].items():
-        plot_df[name] = series.values
-    plot_long = plot_df.melt("Date", var_name="Series", value_name="AQI")
-    chart2 = alt.Chart(plot_long).mark_line(point=True).encode(
-        x="Date:T", y="AQI:Q", color="Series:N",
-        strokeDash=alt.condition(alt.datum.Series == "Actual", alt.value([1, 0]), alt.value([4, 2])),
-    )
-    st.altair_chart(chart2.properties(height=400), width='stretch')
-
 # ---- About tab ----
 with tab_about:
     st.markdown(f"""
     ### About this dashboard
-    This app is the deployed version of the *Nigeria AQI Forecasting* capstone notebook.
+    This app is the deployed version of the *Nigeria AQI Forecasting* capstone project.
     For the selected geography, it:
 
-    1. Aggregates monthly AQI (and pollutant/environmental drivers) from the underlying dataset
-    2. Trains and evaluates **6 candidate models** on a held-out {horizon}-month window:
-       Naive, Seasonal Naive, Holt-Winters, auto-tuned SARIMA, Random Forest, and XGBoost
-    3. Automatically selects the model with the **lowest RMSE** on that held-out window
-    4. Retrains the winner on the **full history** and forecasts {horizon} months forward,
-       with 95% confidence intervals derived from test-set residuals (tree models / Holt-Winters)
-       or native statistical intervals (SARIMA)
+    1. Uses historical air-quality data to identify trends and seasonal patterns
+    2. Applies an automated forecasting pipeline to estimate future AQI
+    3. Generates {horizon}-month forecasts with uncertainty intervals
+    4. Provides simple forecast insights and public-health considerations to support awareness and preparedness
 
     **Currently viewing:** {label} · **{len(agg)} months** of history
     ({agg.index.min().strftime('%b %Y')} – {agg.index.max().strftime('%b %Y')})
