@@ -337,6 +337,77 @@ def get_decomposition(agg: pd.DataFrame):
 
 
 # ----------------------------------------------------------------------
+# Lightweight dashboard forecast
+# ----------------------------------------------------------------------
+
+def run_fast_pipeline(df: pd.DataFrame, level: str, value: str | None,
+                      horizon: int = DEFAULT_HORIZON) -> dict:
+    """
+    Lightweight forecasting path for the public dashboard.
+
+    The full multi-model comparison remains available in run_pipeline() for
+    research/evaluation. The dashboard uses a fixed seasonal SARIMA configuration
+    so changing State/City does not trigger an expensive auto-model search.
+    """
+    subset = filter_subset(df, level, value)
+    agg = build_monthly_series(subset)
+
+    ts = agg["AQI"]
+    if len(ts) < 25:
+        raise ValueError("Not enough monthly history to generate a seasonal forecast.")
+
+    future_index = pd.date_range(
+        ts.index[-1] + pd.offsets.MonthBegin(1),
+        periods=horizon,
+        freq="MS",
+    )
+
+    try:
+        model = pm.ARIMA(
+            order=(1, 1, 1),
+            seasonal_order=(1, 1, 1, 12),
+            suppress_warnings=True,
+        ).fit(ts)
+
+        point_fc, ci = model.predict(
+            n_periods=horizon,
+            return_conf_int=True,
+            alpha=0.05,
+        )
+
+        forecast_table = pd.DataFrame({
+            "Forecast_AQI": pd.Series(point_fc, index=future_index),
+            "Lower_95%_CI": pd.Series(ci[:, 0], index=future_index),
+            "Upper_95%_CI": pd.Series(ci[:, 1], index=future_index),
+        })
+    except Exception:
+        # Robust fallback for an unusual local series.
+        seasonal_base = ts.iloc[-12:].values
+        reps = int(np.ceil(horizon / 12))
+        point_fc = pd.Series(
+            np.tile(seasonal_base, reps)[:horizon],
+            index=future_index,
+        )
+        std = max(float(ts.std()), 1.0)
+        forecast_table = pd.DataFrame({
+            "Forecast_AQI": point_fc,
+            "Lower_95%_CI": point_fc - 1.96 * std,
+            "Upper_95%_CI": point_fc + 1.96 * std,
+        })
+
+    forecast_table["Forecast_AQI"] = forecast_table["Forecast_AQI"].clip(lower=0).round(1)
+    forecast_table["Lower_95%_CI"] = forecast_table["Lower_95%_CI"].clip(lower=0).round(1)
+    forecast_table["Upper_95%_CI"] = forecast_table["Upper_95%_CI"].clip(lower=0).round(1)
+    forecast_table["Severity"] = forecast_table["Forecast_AQI"].apply(classify_aqi)
+
+    return {
+        "agg": agg,
+        "forecast_table": forecast_table,
+        "decomposition": get_decomposition(agg),
+    }
+
+
+# ----------------------------------------------------------------------
 # One-call convenience wrapper used by the dashboard
 # ----------------------------------------------------------------------
 
