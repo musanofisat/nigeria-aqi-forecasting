@@ -51,13 +51,13 @@ def cached_geo_options(df: pd.DataFrame) -> dict:
     return fc.get_geo_options(df)
 
 
-@st.cache_resource(show_spinner=False)
+@st.cache_data(show_spinner=False)
 def cached_pipeline(df_hash: str, _df: pd.DataFrame, level: str, value, horizon: int) -> dict:
     """
     _df is prefixed with underscore so Streamlit doesn't try to hash the whole
     DataFrame; df_hash (a cheap fingerprint) plus level/value/horizon key the cache.
     """
-    return fc.run_pipeline(_df, level, value, horizon=horizon)
+    return fc.run_fast_pipeline(_df, level, value, horizon=horizon)
 
 
 # ----------------------------------------------------------------------
