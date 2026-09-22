@@ -67,13 +67,8 @@ def cached_pipeline(df_hash: str, _df: pd.DataFrame, level: str, value, horizon:
 st.sidebar.title("🌍 Nigeria AQI Forecast")
 st.sidebar.caption("12-year monitoring data (2014–2025) · 72 cities · 37 states")
 
-uploaded = st.sidebar.file_uploader(
-    "Optional: upload an updated CSV (same schema) to retrain on newer data",
-    type=["csv"],
-)
-
 with st.spinner("Loading data..."):
-    df = cached_load_data(uploaded if uploaded is not None else DATA_PATH_DEFAULT)
+    df = cached_load_data(DATA_PATH_DEFAULT)
     geo = cached_geo_options(df)
 
 st.sidebar.markdown("---")
@@ -269,8 +264,10 @@ with tab_about:
     **Currently viewing:** {label} · **{len(agg)} months** of history
     ({agg.index.min().strftime('%b %Y')} – {agg.index.max().strftime('%b %Y')})
 
-    **Data freshness:** to refresh with new monitoring data, upload an updated CSV
-    (same column schema) using the sidebar uploader — no code changes needed.
+    **Data coverage:** January 2014 – December 2025.
+
+    The forecasting system uses historical air-quality data to generate future AQI estimates.
+    Future versions can incorporate regularly updated monitoring data.
 
     ---
     Built with Streamlit · scikit-learn · XGBoost · statsmodels · pmdarima
